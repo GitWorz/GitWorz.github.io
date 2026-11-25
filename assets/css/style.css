@@ -24,8 +24,8 @@ ul,ol{padding:0;list-style:none}
 ::selection{background:var(--ink);color:var(--paper)}
 
 /* language switching */
-:root:not([data-l="en"]) [lang="en"]:not(html){display:none!important}
-:root[data-l="en"] [lang="fr"]:not(html){display:none!important}
+:root:not([data-l="en"]) [lang="en"]:not(html):not(.keep){display:none!important}
+:root[data-l="en"] [lang="fr"]:not(html):not(.keep){display:none!important}
 
 /* grain */
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:90;opacity:.12;mix-blend-mode:multiply;
@@ -283,6 +283,19 @@ figure.ph:hover img{transform:scale(1.035)}
 .hobbies div{background:var(--paper);padding:20px}
 .hobbies b{display:block;font:400 26px/1.1 var(--display);margin:8px 0 4px}
 .hobbies p{font-size:14.5px;color:var(--ink-2)}
+
+/* ───────── recommandations ───────── */
+.recos{border-top:1px solid var(--rule)}
+.quotes{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,4vw,64px)}
+.reco{position:relative;border-top:1px solid var(--ink);padding-top:clamp(40px,4vw,56px);display:flex;flex-direction:column}
+.reco .qm{position:absolute;top:-8px;left:-6px;font:400 clamp(90px,9vw,140px)/1 var(--display);color:var(--spore);opacity:.55;pointer-events:none}
+.reco blockquote{margin:0;font:400 clamp(26px,2.6vw,38px)/1.18 var(--display);letter-spacing:-.01em;text-wrap:pretty}
+.reco .tr{margin-top:14px;font-size:14.5px;color:var(--mute);max-width:52ch}
+.reco figcaption{margin-top:auto;padding-top:28px;display:flex;flex-direction:column;gap:6px}
+.reco figcaption b{font:400 24px/1.1 var(--display)}
+.reco figcaption .mono{line-height:1.7}
+.reco-note{margin-top:clamp(30px,4vw,48px)}
+@media (max-width:760px){.quotes{grid-template-columns:1fr}}
 
 /* ───────── contact ───────── */
 .contact{background:var(--ink);color:var(--paper);padding-block:clamp(90px,12vw,170px) 30px;position:relative;overflow:hidden}
