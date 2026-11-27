@@ -100,6 +100,8 @@
     busy = false; renderResults();
   });
 
+  if (room) render();
+
   async function add(ev) {
     if (mine() >= MAX_PER_PERSON) return toast('Maximum de titres en attente atteint.');
     ev.t = 'add'; ev.by = $('name').value.trim().slice(0, 24); store.set('jbx-name', ev.by);
