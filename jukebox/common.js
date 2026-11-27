@@ -66,9 +66,10 @@ const JBX = (() => {
         break;
       case 'vote': if (t && t.status === 'q') t.votes.add(clip(ev.u, 20)); break;
       case 'unvote': if (t) t.votes.delete(clip(ev.u, 20)); break;
-      case 'queue': if (t) { t.status = 'd'; t.dts = ts; } break;
+      case 'queue': if (t) { for (const o of timeline(S, ts).played) o.status = 'p'; t.status = 'd'; t.dts = ts; } break;
       case 'now':
         if (!t) break;
+        for (const o of timeline(S, ts).played) o.status = 'p';
         for (const o of S.tracks.values()) if (o.status === 'n') o.status = 'p';
         t.status = 'n'; t.nts = ts; break;
       case 'play': if (t) t.status = 'p'; break;
