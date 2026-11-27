@@ -123,3 +123,12 @@ button:disabled{opacity:.4;cursor:default;transform:none}
 .ctl.main:hover{transform:scale(1.08)}.ctl.main svg{width:28px;height:28px}
 .np.paused .ctl.main{animation:breathe 1.6s ease-in-out infinite}
 @keyframes breathe{50%{box-shadow:0 0 0 10px rgba(200,255,62,.12),0 10px 30px -8px rgba(200,255,62,.7)}}
+.prog.seek{position:relative;overflow:visible;cursor:pointer;touch-action:none;height:8px;transition:height .2s var(--ease)}
+.prog.seek::before{content:"";position:absolute;inset:-12px 0}
+.prog.seek:hover,.prog.seek.drag,.prog.seek:focus-visible{height:10px}
+.prog.seek:focus-visible{outline:2px solid var(--lime);outline-offset:6px}
+.prog.seek i{position:relative}
+.prog.seek i::after{content:"";position:absolute;right:-9px;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.5),0 0 0 4px rgba(200,255,62,.25);transform:translateY(-50%) scale(0);transition:transform .25s var(--spring)}
+.prog.seek:hover i::after,.prog.seek.drag i::after,.prog.seek:focus-visible i::after{transform:translateY(-50%) scale(1)}
+.prog.seek.drag i{transition:none}
+@media(hover:none){.prog.seek i::after{transform:translateY(-50%) scale(1)}}

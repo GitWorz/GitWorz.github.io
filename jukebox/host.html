@@ -8,7 +8,7 @@
 <title>Jukebox — hôte</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1795777659">
+<link rel="stylesheet" href="style.css?v=1795777882">
 <style>
 .grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:36px;max-width:1240px;margin:0 auto;padding:28px max(4vw,16px) 72px;align-items:start}
 .qrcard{position:sticky;top:24px;border-radius:30px;padding:2px;background:conic-gradient(from var(--a,0deg),var(--lime),var(--coral),#6b5bff,var(--lime));animation:rot 6s linear infinite}
@@ -82,7 +82,7 @@ details[open] summary::before{transform:rotate(90deg)}
     </details>
 
     <div class="foot">
-      <p class="note">« Ajouter dans Deezer » ouvre le titre : s'il ne joue rien, il passe en cours ; sinon il rejoint « Prochains » et tu l'ajoutes à la file dans Deezer. Le titre en cours avance seul selon la durée des morceaux. Les boutons ⏮ ⏯ ⏭ agissent sur le chrono du site : fais la même action dans Deezer. L'historique s'efface seul après 12 h.</p>
+      <p class="note">Glisse la barre de progression (ou flèches ← →) pour recaler le temps. « Ajouter dans Deezer » ouvre le titre : s'il ne joue rien, il passe en cours ; sinon il rejoint « Prochains » et tu l'ajoutes à la file dans Deezer. Le titre en cours avance seul selon la durée des morceaux. Les boutons ⏮ ⏯ ⏭ agissent sur le chrono du site : fais la même action dans Deezer. L'historique s'efface seul après 12 h.</p>
       <button class="ghost" id="reset">Vider la file</button>
     </div>
   </main>
@@ -90,7 +90,7 @@ details[open] summary::before{transform:rotate(90deg)}
 <div class="toast" id="toast" role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="common.js?v=1795777659"></script>
+<script src="common.js?v=1795777882"></script>
 <script>
 {
   const $ = id => document.getElementById(id);
@@ -141,11 +141,12 @@ details[open] summary::before{transform:rotate(90deg)}
     const playedK = new Set(tl.played.map(t => t.k));
     const done = [...tl.played, ...[...S.tracks.values()].filter(t => (t.status === 'p' || t.status === 'x') && !playedK.has(t.k))];
     const k = tl.cur ? esc(tl.cur.k) : '';
+    if (!JBX.drag.on || !tl.cur)
     $('now').innerHTML = JBX.nowCard(tl, tl.cur ? `<div class="controls">
       <button class="ctl" data-a="restart" data-k="${k}" aria-label="Recommencer le titre" title="Recommencer"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
       <button class="ctl main" data-a="${tl.paused ? 'resume' : 'pause'}" data-k="${k}" aria-label="${tl.paused ? 'Reprendre' : 'Pause'}" title="${tl.paused ? 'Reprendre' : 'Pause'}">${tl.paused ? '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'}</button>
       <button class="ctl" data-a="skip" data-k="${k}" aria-label="Titre suivant" title="Suivant"><svg viewBox="0 0 24 24"><path d="M4 5v14l11-7zM16 5h2v14h-2z"/></svg></button>
-    </div>` : '');
+    </div>` : '', true);
     $('qrnow').innerHTML = tl.cur ? `${JBX.EQ}<span>${esc(tl.cur.title)} · ${esc(tl.cur.artist)}</span>` : '';
     const su = stagger(animU(tl.up.map(t => t.k)));
     $('up').innerHTML = tl.up.length ? tl.up.map((t, i) => row(t, i + 1, `<button class="ghost" data-a="now" data-k="${esc(t.k)}">▶ Jouer maintenant</button>${delBtn(t)}`, 'next', su(t.k))).join('') : '<li class="empty">Aucun titre ajouté dans Deezer pour l\'instant.</li>';
@@ -162,6 +163,32 @@ details[open] summary::before{transform:rotate(90deg)}
     if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length + '|' + tl.paused + '|' + (tl.cur ? tl.cur.nts : '') !== sig) return render();
     JBX.tick(tl);
   }, 1000);
+
+  /* Barre de progression interactive : glisser ou flèches pour recaler le chrono. */
+  const drag = JBX.drag; let dg = null;
+  const preview = f => {
+    dg.pos = Math.round(f * dg.dur);
+    const p = $('prog'); if (p) p.style.width = f * 100 + '%';
+    const e = $('elapsed'); if (e) e.textContent = fmtDur(dg.pos) || '0:00';
+    const l = $('left'); if (l) l.textContent = '-' + (fmtDur(dg.dur - dg.pos) || '0:00');
+  };
+  const at = x => { const r = $('seek').getBoundingClientRect(); return Math.min(1, Math.max(0, (x - r.left) / r.width)); };
+  const seek = async (k, pos) => { try { await send(room, { t: 'seek', k, pos: Math.round(pos * 1000) }); } catch (err) { toast(err.message, true); } };
+  document.addEventListener('pointerdown', e => {
+    const bar = e.target.closest('#seek'); if (!bar) return;
+    const tl = timeline(S); if (!tl.cur || !tl.cur.dur) return;
+    e.preventDefault(); dg = { k: tl.cur.k, dur: tl.cur.dur }; drag.on = true; bar.classList.add('drag'); preview(at(e.clientX));
+  });
+  document.addEventListener('pointermove', e => { if (dg && $('seek')) preview(at(e.clientX)); });
+  const end = () => { if (!dg) return; const d = dg; dg = null; drag.on = false; const bar = $('seek'); if (bar) bar.classList.remove('drag'); seek(d.k, d.pos); };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+  document.addEventListener('keydown', e => {
+    if (!e.target.closest || !e.target.closest('#seek') || !['ArrowLeft', 'ArrowRight', 'Home'].includes(e.key)) return;
+    const tl = timeline(S); if (!tl.cur || !tl.cur.dur) return;
+    e.preventDefault();
+    const cur = (tl.at - tl.start) / 1000;
+    seek(tl.cur.k, e.key === 'Home' ? 0 : Math.max(0, Math.min(tl.cur.dur - 1, cur + (e.key === 'ArrowRight' ? 5 : -5))));
+  });
 
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-a]'); if (!el) return;

@@ -75,6 +75,11 @@ const JBX = (() => {
       case 'pause': { const tl = materialize(S, ts); if (tl.cur === t && !t.paused) t.paused = ts; break; }
       case 'resume': { const tl = materialize(S, ts); if (tl.cur === t && t.paused) { t.nts += ts - t.paused; t.paused = 0; } break; }
       case 'restart': { const tl = materialize(S, ts); if (tl.cur === t) { t.nts = ts; if (t.paused) t.paused = ts; } break; }
+      case 'seek': {
+        const tl = materialize(S, ts);
+        if (tl.cur === t && t.dur) { const pos = Math.max(0, Math.min(t.dur * 1000 - 1000, Number(ev.pos) || 0)); t.nts = ts - pos; if (t.paused) t.paused = ts; }
+        break;
+      }
       case 'play': if (t) t.status = 'p'; break;
       case 'del': if (t) t.status = 'x'; break;
       case 'requeue': if (t) { t.status = 'q'; t.ts = ts; } break;
@@ -122,6 +127,7 @@ const JBX = (() => {
   }
 
   /* --- Rendu partagé --- */
+  const JBX_DRAG = { on: false };
   const bigCover = u => u ? u.replace(/\/\d+x\d+-/, '/500x500-').replace(/['"()\\\s]/g, '') : '';
   const pct = tl => { const t = tl.cur; return t && t.dur ? Math.max(0, Math.min(100, (tl.at - tl.start) / (t.dur * 10))) : 0; };
   const times = tl => {
@@ -131,7 +137,7 @@ const JBX = (() => {
   };
   const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
   let lastNow = '';
-  function nowCard(tl, extra = '') {
+  function nowCard(tl, extra = '', seekable = false) {
     const t = tl.cur;
     if (!t) { lastNow = ''; return `<div class="np-empty"><span class="disc"></span><div>Rien ne joue pour l'instant.<br><span class="note">Le prochain titre apparaîtra ici.</span></div></div>`; }
     const c = bigCover(t.cover), fresh = t.k !== lastNow; lastNow = t.k;
@@ -141,10 +147,11 @@ const JBX = (() => {
       <div class="deck"><span class="vinyl"${c ? ` style="--lab:url('${esc(c)}')"` : ''}></span>${c ? `<img class="sleeve" src="${esc(c)}" alt="">` : '<span class="sleeve"></span>'}</div>
       <div><div class="label">${EQ}${tl.paused ? 'En pause' : 'En cours'}</div><div class="title">${esc(t.title)}</div>
         <div class="artist">${esc(t.artist)}${t.by ? ' · demandé par ' + esc(t.by) : ''}</div>
-        <div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div>
+        ${seekable && t.dur ? `<div class="prog seek" id="seek" role="slider" tabindex="0" aria-label="Position dans le titre" aria-valuemin="0" aria-valuemax="${t.dur}" aria-valuenow="${Math.round(pct(tl) * t.dur / 100)}"><i id="prog" style="width:${pct(tl)}%"></i></div>` : `<div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div>`}
         <div class="meta"><span id="elapsed">${a}</span><span id="left">${b}</span></div>${extra}</div></div>`;
   }
   function tick(tl) {
+    if (JBX_DRAG.on) return;
     const p = document.getElementById('prog'); if (p) p.style.width = pct(tl) + '%';
     const [a, b] = times(tl);
     const e = document.getElementById('elapsed'); if (e) e.textContent = a;
@@ -160,5 +167,5 @@ const JBX = (() => {
     return (msg, err) => { el.textContent = msg; el.classList.toggle('err', !!err); el.classList.add('show'); clearTimeout(tm); tm = setTimeout(() => el.classList.remove('show'), 2600); };
   }
 
-  return { bigCover, pct, nowCard, tick, animator, toaster, EQ, esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM, ACTIVE, timeline };
+  return { drag: JBX_DRAG, bigCover, pct, nowCard, tick, animator, toaster, EQ, esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM, ACTIVE, timeline };
 })();
