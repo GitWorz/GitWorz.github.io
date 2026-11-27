@@ -32,8 +32,9 @@
     <p class="note" id="limit"></p>
     <ul class="list" id="results" aria-live="polite"></ul>
 
-    <h2>File d'attente</h2>
+    <h2>En cours</h2>
     <div id="nowbox"></div>
+    <h2>File d'attente</h2>
     <ul class="list" id="queue"></ul>
   </section>
 </main>
@@ -43,14 +44,14 @@
 <script>
 {
   const $ = id => document.getElementById(id);
-  const { esc, store, uid, send, subscribe, makeState, apply, queue, byStatus, dzSearch, fmtDur, norm, MAX_PER_PERSON } = JBX;
+  const { esc, store, uid, send, subscribe, makeState, apply, queue, timeline, ACTIVE, dzSearch, fmtDur, norm, MAX_PER_PERSON } = JBX;
   const room = JBX.roomFromUrl();
   const S = makeState();
   let results = [], lastQ = '', busy = false, toastT;
 
   const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
   const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'Connecté' : 'Reconnexion…'; };
-  const mine = () => queue(S).filter(t => t.u === uid()).length;
+  const mine = () => [...timeline(S).up, ...queue(S)].filter(t => t.u === uid()).length;
   const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
 
   {
@@ -63,23 +64,36 @@
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
 
+  let sig = '';
+  const bar = (tl) => { const t = tl.cur; if (!t || !t.dur) return 0; return Math.min(100, (Date.now() - tl.start) / (t.dur * 10)); };
   function render() {
-    const q = queue(S), me = uid(), n = mine();
-    const now = byStatus(S, 'n')[0];
-    $('nowbox').innerHTML = now ? `<ul class="list" style="margin-bottom:8px"><li class="row now res">${cover(now)}<div><div class="t">${esc(now.title)}</div><div class="a">En cours · ${esc(now.artist)}</div></div><span></span></li></ul>` : '';
-    $('queue').innerHTML = q.length ? q.map((t, i) => {
+    const tl = timeline(S), q = queue(S), me = uid(), n = mine();
+    const by = t => t.by ? ' · ' + esc(t.by) : '';
+    sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length;
+    $('nowbox').innerHTML = tl.cur
+      ? `<ul class="list"><li class="row now res">${cover(tl.cur)}<div><div class="t">${esc(tl.cur.title)}</div><div class="a">${esc(tl.cur.artist)}${by(tl.cur)}</div><div class="prog"><i id="prog" style="width:${bar(tl)}%"></i></div></div><span></span></li></ul>`
+      : '<div class="empty">Rien ne joue pour l\'instant.</div>';
+    const upRows = tl.up.map((t, i) => `<li class="row"><span class="n">${i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
+        <div class="acts"><span class="tag">Prochain</span></div></li>`);
+    const qRows = q.map((t, i) => {
       const on = t.votes.has(me);
-      return `<li class="row"><span class="n">${i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${t.by ? ' · ajouté par ' + esc(t.by) : ''}</div></div>
+      return `<li class="row"><span class="n">${tl.up.length + i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
         <div class="acts"><button class="vote${on ? ' on' : ''}" data-k="${esc(t.k)}" aria-pressed="${on}" aria-label="Voter">▲ ${t.votes.size}</button></div></li>`;
-    }).join('') : '<li class="empty">La file est vide. Ajoute le premier titre.</li>';
+    });
+    $('queue').innerHTML = upRows.length + qRows.length ? upRows.concat(qRows).join('') : '<li class="empty">La file est vide. Ajoute le premier titre.</li>';
     $('limit').textContent = n >= MAX_PER_PERSON ? `Tu as ${n} titres en attente, maximum atteint. Attends qu'un de tes titres passe.` : (n ? `Tes titres en attente : ${n}/${MAX_PER_PERSON}` : '');
     renderResults();
   }
+  setInterval(() => {
+    const tl = timeline(S);
+    if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length !== sig) return render();
+    const p = $('prog'); if (p) p.style.width = bar(tl) + '%';
+  }, 1000);
 
   function renderResults() {
     const full = mine() >= MAX_PER_PERSON;
     const rows = results.map((r, i) => {
-      const k = 'dz:' + r.id, t = S.tracks.get(k), inQ = t && (t.status === 'q' || t.status === 'n');
+      const k = 'dz:' + r.id, t = S.tracks.get(k), inQ = t && ACTIVE.includes(t.status);
       const img = JBX.safeCover(r.album && r.album.cover_small);
       return `<li class="row res">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
         <div><div class="t">${esc(r.title)}${r.explicit_lyrics ? ' <span class="note">(explicite)</span>' : ''}</div><div class="a">${esc(r.artist && r.artist.name)} · ${fmtDur(r.duration)}</div></div>

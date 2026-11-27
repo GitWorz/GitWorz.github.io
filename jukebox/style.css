@@ -43,3 +43,6 @@ button:disabled{opacity:.45;cursor:default}
 .toast.show{opacity:1;transform:translateX(-50%)}
 @media(prefers-reduced-motion:reduce){.toast{transition:none}}
 @media(max-width:520px){.row{grid-template-columns:44px minmax(0,1fr);row-gap:8px}.row .n{display:none}.row img,.row .ph{width:44px;height:44px}.row .acts{grid-column:1/-1;justify-content:stretch}.row .acts>*{flex:1}.row.res{grid-template-columns:44px minmax(0,1fr) auto}.row.res .acts{grid-column:auto}}
+.prog{height:4px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden}.prog i{display:block;height:100%;background:var(--red);transition:width 1s linear}
+.tag{font-size:13px;font-weight:700;color:var(--ok);white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.prog i{transition:none}}

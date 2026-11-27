@@ -47,7 +47,10 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
     <h2>En cours</h2>
     <ul class="list" id="now"></ul>
 
-    <h2>File d'attente <span class="note" id="count"></span></h2>
+    <h2>Prochains dans Deezer</h2>
+    <ul class="list" id="up"></ul>
+
+    <h2>Demandes <span class="note" id="count"></span></h2>
     <ul class="list" id="queue"></ul>
 
     <details>
@@ -55,7 +58,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
       <ul class="list" id="done"></ul>
     </details>
 
-    <p class="note" style="margin-top:32px">« Ouvrir » lance le titre dans Deezer et le marque en cours. Dans Deezer, utilise « Ajouter à la file d'attente » si un titre joue déjà. Le QR code est permanent ; l'historique de la file s'efface seul après 12 h.</p>
+    <p class="note" style="margin-top:32px">« Ajouter dans Deezer » ouvre le titre : s'il ne joue rien, il passe en cours ; sinon il rejoint « Prochains », et tu l'ajoutes à la file d'attente dans Deezer. Le titre en cours avance seul selon la durée des morceaux ; « Suivant » ou « Jouer maintenant » corrigent si tu sautes ou mets en pause. Le QR code est permanent ; l'historique de la file s'efface seul après 12 h.</p>
     <button class="ghost" id="reset" style="margin-top:8px">Vider la file</button>
   </main>
 </div>
@@ -66,7 +69,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
 <script>
 {
   const $ = id => document.getElementById(id);
-  const { esc, store, send, subscribe, makeState, apply, queue, byStatus, fmtDur } = JBX;
+  const { esc, store, send, subscribe, makeState, apply, queue, byStatus, timeline, fmtDur } = JBX;
   const room = JBX.roomFromUrl();
   const S = makeState();
   let toastT;
@@ -101,24 +104,44 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
   const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
   const meta = t => `${esc(t.artist)}${t.dur ? ' · ' + fmtDur(t.dur) : ''}${t.by ? ' · ' + esc(t.by) : ''}`;
   const row = (t, n, acts, cls = '') => `<li class="row ${cls}"><span class="n">${n}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${meta(t)}</div></div><div class="acts">${acts}</div></li>`;
-  const openBtn = t => `<a class="btn blue" href="${esc(link(t))}"${$('app').checked ? '' : ' target="_blank" rel="noopener"'} data-a="now" data-k="${esc(t.k)}">${t.id ? 'Ouvrir' : 'Chercher'}</a>`;
+  const openBtn = t => `<a class="btn blue" href="${esc(link(t))}"${$('app').checked ? '' : ' target="_blank" rel="noopener"'} data-a="add2dz" data-k="${esc(t.k)}">Ajouter dans Deezer</a>`;
+  const delBtn = t => `<button class="ghost" data-a="del" data-k="${esc(t.k)}" aria-label="Retirer">✕</button>`;
+  const left = tl => { const t = tl.cur; if (!t || !t.dur) return ''; const r = Math.max(0, Math.round(t.dur - (Date.now() - tl.start) / 1000)); return 'reste ' + (fmtDur(r) || '0:00'); };
+  const pct = tl => { const t = tl.cur; return t && t.dur ? Math.min(100, (Date.now() - tl.start) / (t.dur * 10)) : 0; };
 
+  let sig = '';
   function render() {
-    const q = queue(S), now = byStatus(S, 'n');
-    const done = [...byStatus(S, 'p'), ...byStatus(S, 'x')].sort((a, b) => b.ts - a.ts);
-    $('now').innerHTML = now.length ? now.map(t => row(t, '♪', `${openBtn(t)}<button class="ghost" data-a="play" data-k="${esc(t.k)}">Terminé</button>`, 'now')).join('') : '<li class="empty">Rien en cours.</li>';
-    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `<span class="note">▲ ${t.votes.size}</span>${openBtn(t)}<button class="ghost" data-a="del" data-k="${esc(t.k)}" aria-label="Retirer">✕</button>`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
+    const tl = timeline(S), q = queue(S);
+    sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length;
+    const playedK = new Set(tl.played.map(t => t.k));
+    const done = [...tl.played, ...[...S.tracks.values()].filter(t => (t.status === 'p' || t.status === 'x') && !playedK.has(t.k))];
+    $('now').innerHTML = tl.cur
+      ? `<li class="row now"><span class="n">♪</span>${cover(tl.cur)}<div><div class="t">${esc(tl.cur.title)}</div><div class="a">${meta(tl.cur)} · <span id="left">${left(tl)}</span></div><div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div></div>
+         <div class="acts"><button class="ghost" data-a="skip" data-k="${esc(tl.cur.k)}">Suivant</button></div></li>`
+      : '<li class="empty">Rien en cours. « Ajouter dans Deezer » sur une demande la lance.</li>';
+    $('up').innerHTML = tl.up.length ? tl.up.map((t, i) => row(t, i + 1, `<button class="ghost" data-a="now" data-k="${esc(t.k)}">Jouer maintenant</button>${delBtn(t)}`)).join('') : '<li class="empty">Aucun titre déjà ajouté dans Deezer.</li>';
+    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `<span class="note">▲ ${t.votes.size}</span>${openBtn(t)}${delBtn(t)}`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
     $('count').textContent = q.length ? '(' + q.length + ')' : '';
     $('done').innerHTML = done.length ? done.map(t => row(t, t.status === 'x' ? '✕' : '✓', `<button class="ghost" data-a="requeue" data-k="${esc(t.k)}">Remettre</button>`)).join('') : '<li class="empty">Vide.</li>';
     document.title = (q.length ? '(' + q.length + ') ' : '') + 'Jukebox — hôte';
   }
   render();
+  setInterval(() => {
+    const tl = timeline(S);
+    if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length !== sig) return render();
+    const p = $('prog'); if (p) p.style.width = pct(tl) + '%';
+    const l = $('left'); if (l) l.textContent = left(tl);
+  }, 1000);
 
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-a]'); if (!el) return;
     const t = S.tracks.get(el.dataset.k); if (!t) return;
+    const tl = timeline(S);
+    let ev = { t: el.dataset.a, k: t.k };
+    if (ev.t === 'add2dz') ev.t = tl.cur ? 'queue' : 'now';
+    if (ev.t === 'skip') ev = tl.up[0] ? { t: 'now', k: tl.up[0].k } : { t: 'play', k: t.k };
     if (el.tagName !== 'A') el.disabled = true;
-    try { await send(room, { t: el.dataset.a, k: t.k }); } catch (err) { toast(err.message); el.disabled = false; }
+    try { await send(room, ev); } catch (err) { toast(err.message); el.disabled = false; }
   });
 }
 </script>

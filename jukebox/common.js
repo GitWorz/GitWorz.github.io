@@ -4,6 +4,7 @@ const JBX = (() => {
   const NTFY = 'https://ntfy.sh/';
   const ROOM_RE = /^jbx-[a-z0-9]{8,40}$/;
   const MAX_PER_PERSON = 3;
+  const ACTIVE = ['q', 'd', 'n'];
   const DEFAULT_ROOM = 'jbx-gnrnyq237qz397im'; // salle permanente : le QR code pointe toujours ici
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,7 +51,7 @@ const JBX = (() => {
   /* État : chaque titre a un statut q (en attente), n (en cours), p (joué), x (retiré). */
   function makeState() { return { tracks: new Map() }; }
   function apply(S, ev, m) {
-    if (ev.t === 'clear') { for (const t of S.tracks.values()) if (t.status === 'q' || t.status === 'n') t.status = 'x'; return; }
+    if (ev.t === 'clear') { for (const t of S.tracks.values()) if (ACTIVE.includes(t.status)) t.status = 'x'; return; }
     const k = clip(ev.k, 200); if (!k) return;
     const ts = Number(ev.ts) || (m.time * 1000);
     let t = S.tracks.get(k);
@@ -60,15 +61,16 @@ const JBX = (() => {
           t = { k, id: /^\d{1,15}$/.test(String(ev.id)) ? String(ev.id) : '', title: clip(ev.title), artist: clip(ev.artist),
             cover: safeCover(ev.cover), dur: Math.max(0, ev.dur | 0), by: clip(ev.by, 24), u: clip(ev.u, 20), ts, votes: new Set(), status: 'q' };
           S.tracks.set(k, t);
-        } else if (t.status !== 'q' && t.status !== 'n') { t.status = 'q'; t.ts = ts; t.votes = new Set(); t.by = clip(ev.by, 24); t.u = clip(ev.u, 20); }
+        } else if (!ACTIVE.includes(t.status)) { t.status = 'q'; t.ts = ts; t.votes = new Set(); t.by = clip(ev.by, 24); t.u = clip(ev.u, 20); }
         t.votes.add(clip(ev.u, 20));
         break;
       case 'vote': if (t && t.status === 'q') t.votes.add(clip(ev.u, 20)); break;
       case 'unvote': if (t) t.votes.delete(clip(ev.u, 20)); break;
+      case 'queue': if (t) { t.status = 'd'; t.dts = ts; } break;
       case 'now':
         if (!t) break;
         for (const o of S.tracks.values()) if (o.status === 'n') o.status = 'p';
-        t.status = 'n'; break;
+        t.status = 'n'; t.nts = ts; break;
       case 'play': if (t) t.status = 'p'; break;
       case 'del': if (t) t.status = 'x'; break;
       case 'requeue': if (t) { t.status = 'q'; t.ts = ts; } break;
@@ -76,6 +78,19 @@ const JBX = (() => {
   }
   const byStatus = (S, st) => [...S.tracks.values()].filter(t => t.status === st);
   const queue = S => byStatus(S, 'q').sort((a, b) => b.votes.size - a.votes.size || a.ts - b.ts);
+
+  /* Chronologie déduite : le titre en cours avance seul selon les durées.
+     cur = vraiment en cours, up = déjà dans la file Deezer (dans l'ordre), played = terminés. */
+  const GRACE = 3000;
+  function timeline(S, now = Date.now()) {
+    const up = byStatus(S, 'd').sort((a, b) => a.dts - b.dts);
+    const played = [];
+    let cur = byStatus(S, 'n')[0] || null, start = cur ? cur.nts : 0;
+    const over = () => cur && cur.dur > 0 && now - start > cur.dur * 1000 + GRACE;
+    while (over() && up.length) { played.push(cur); const nx = up.shift(); start = Math.max(start + cur.dur * 1000, nx.dts); cur = nx; }
+    if (over()) { played.push(cur); cur = null; }
+    return { cur, start, up, played };
+  }
 
   /* Recherche Deezer en JSONP (l'API publique n'envoie pas d'en-têtes CORS). */
   let cbN = 0;
@@ -92,5 +107,5 @@ const JBX = (() => {
     });
   }
 
-  return { esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM };
+  return { esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM, ACTIVE, timeline };
 })();
