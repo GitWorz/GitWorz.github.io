@@ -17,7 +17,6 @@
 </header>
 
 <main class="wrap">
-  <div id="noroom" class="empty" hidden style="margin-top:24px">Aucune session ouverte. Scanne le QR code affiché par la personne qui gère la musique.</div>
 
   <section id="app" hidden>
     <label for="name">Ton prénom (facultatif)</label>
@@ -54,8 +53,7 @@
   const mine = () => queue(S).filter(t => t.u === uid()).length;
   const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
 
-  if (!room) { $('noroom').hidden = false; $('status').hidden = true; }
-  else {
+  {
     $('app').hidden = false;
     $('name').value = store.get('jbx-name') || '';
     $('name').addEventListener('change', () => store.set('jbx-name', $('name').value.trim()));

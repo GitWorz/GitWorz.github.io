@@ -4,6 +4,7 @@ const JBX = (() => {
   const NTFY = 'https://ntfy.sh/';
   const ROOM_RE = /^jbx-[a-z0-9]{8,40}$/;
   const MAX_PER_PERSON = 3;
+  const DEFAULT_ROOM = 'jbx-gnrnyq237qz397im'; // salle permanente : le QR code pointe toujours ici
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clip = (s, n = 120) => String(s ?? '').slice(0, n);
@@ -16,9 +17,9 @@ const JBX = (() => {
   if (!_uid) { _uid = rnd(10); store.set('jbx-uid', _uid); }
   const uid = () => _uid;
 
-  const roomFromUrl = () => { const r = new URLSearchParams(location.search).get('r') || ''; return ROOM_RE.test(r) ? r : ''; };
+  const roomFromUrl = () => { const r = new URLSearchParams(location.search).get('r') || ''; return ROOM_RE.test(r) ? r : DEFAULT_ROOM; };
   const newRoom = () => 'jbx-' + rnd(14);
-  const guestUrl = room => new URL('./?r=' + room, location.href).href;
+  const guestUrl = room => new URL(room === DEFAULT_ROOM ? './' : './?r=' + room, location.href).href;
 
   const safeCover = u => { try { const x = new URL(u); return x.protocol === 'https:' && /(^|\.)dzcdn\.net$/.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } };
   const fmtDur = s => s > 0 ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : '';
@@ -49,6 +50,7 @@ const JBX = (() => {
   /* État : chaque titre a un statut q (en attente), n (en cours), p (joué), x (retiré). */
   function makeState() { return { tracks: new Map() }; }
   function apply(S, ev, m) {
+    if (ev.t === 'clear') { for (const t of S.tracks.values()) if (t.status === 'q' || t.status === 'n') t.status = 'x'; return; }
     const k = clip(ev.k, 200); if (!k) return;
     const ts = Number(ev.ts) || (m.time * 1000);
     let t = S.tracks.get(k);
@@ -90,5 +92,5 @@ const JBX = (() => {
     });
   }
 
-  return { esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE };
+  return { esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM };
 })();

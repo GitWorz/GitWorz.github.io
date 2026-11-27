@@ -55,8 +55,8 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
       <ul class="list" id="done"></ul>
     </details>
 
-    <p class="note" style="margin-top:32px">« Ouvrir » lance le titre dans Deezer et le marque en cours. Dans Deezer, utilise « Ajouter à la file d'attente » si un titre joue déjà. La file est conservée 12 h par ntfy.sh.</p>
-    <button class="ghost" id="reset" style="margin-top:8px">Nouvelle session (nouveau QR code)</button>
+    <p class="note" style="margin-top:32px">« Ouvrir » lance le titre dans Deezer et le marque en cours. Dans Deezer, utilise « Ajouter à la file d'attente » si un titre joue déjà. Le QR code est permanent ; l'historique de la file s'efface seul après 12 h.</p>
+    <button class="ghost" id="reset" style="margin-top:8px">Vider la file</button>
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -67,9 +67,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
 {
   const $ = id => document.getElementById(id);
   const { esc, store, send, subscribe, makeState, apply, queue, byStatus, fmtDur } = JBX;
-  let room = JBX.roomFromUrl() || (JBX.ROOM_RE.test(store.get('jbx-room') || '') ? store.get('jbx-room') : JBX.newRoom());
-  store.set('jbx-room', room);
-  history.replaceState(null, '', '?r=' + room);
+  const room = JBX.roomFromUrl();
   const S = makeState();
   let toastT;
   const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
@@ -84,9 +82,9 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
   $('big').addEventListener('click', () => { const on = document.body.classList.toggle('big'); $('big').textContent = on ? 'Fermer' : 'Plein écran'; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('big')) $('big').click(); });
   $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(url); toast('Lien copié'); } catch (_) { toast(url); } });
-  $('reset').addEventListener('click', () => {
-    if (!confirm('Ouvrir une nouvelle session ? L\'ancien QR code ne fonctionnera plus.')) return;
-    store.set('jbx-room', JBX.newRoom()); location.href = location.pathname;
+  $('reset').addEventListener('click', async () => {
+    if (!confirm('Vider la file d\'attente ? Le QR code reste le même.')) return;
+    try { await send(room, { t: 'clear', k: '*' }); toast('File vidée'); } catch (err) { toast(err.message); }
   });
 
   const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'Connecté — les demandes arrivent en direct' : 'Reconnexion…'; };
