@@ -35,8 +35,6 @@ button:disabled{opacity:.45;cursor:default}
 .row .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .row.res{grid-template-columns:52px minmax(0,1fr) auto}
 .row.now{border:2px solid var(--red)}
-.vote{background:transparent;color:var(--ink);border:1.5px solid var(--line);min-width:64px;padding:0 10px}
-.vote.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .empty{color:var(--soft);padding:18px;border:1.5px dashed var(--line);border-radius:14px;text-align:center}
 .note{font-size:13px;color:var(--soft)}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:600;transition:.2s;max-width:calc(100vw - 32px);z-index:9;pointer-events:none}

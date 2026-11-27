@@ -120,7 +120,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
          <div class="acts"><button class="ghost" data-a="skip" data-k="${esc(tl.cur.k)}">Suivant</button></div></li>`
       : '<li class="empty">Rien en cours. « Ajouter dans Deezer » sur une demande la lance.</li>';
     $('up').innerHTML = tl.up.length ? tl.up.map((t, i) => row(t, i + 1, `<button class="ghost" data-a="now" data-k="${esc(t.k)}">Jouer maintenant</button>${delBtn(t)}`)).join('') : '<li class="empty">Aucun titre déjà ajouté dans Deezer.</li>';
-    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `<span class="note">▲ ${t.votes.size}</span>${openBtn(t)}${delBtn(t)}`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
+    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `${openBtn(t)}${delBtn(t)}`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
     $('count').textContent = q.length ? '(' + q.length + ')' : '';
     $('done').innerHTML = done.length ? done.map(t => row(t, t.status === 'x' ? '✕' : '✓', `<button class="ghost" data-a="requeue" data-k="${esc(t.k)}">Remettre</button>`)).join('') : '<li class="empty">Vide.</li>';
     document.title = (q.length ? '(' + q.length + ') ' : '') + 'Jukebox — hôte';

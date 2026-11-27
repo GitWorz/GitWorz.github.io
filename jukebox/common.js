@@ -77,7 +77,7 @@ const JBX = (() => {
     }
   }
   const byStatus = (S, st) => [...S.tracks.values()].filter(t => t.status === st);
-  const queue = S => byStatus(S, 'q').sort((a, b) => b.votes.size - a.votes.size || a.ts - b.ts);
+  const queue = S => byStatus(S, 'q').sort((a, b) => a.ts - b.ts);
 
   /* Chronologie déduite : le titre en cours avance seul selon les durées.
      cur = vraiment en cours, up = déjà dans la file Deezer (dans l'ordre), played = terminés. */

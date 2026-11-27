@@ -12,7 +12,7 @@
 <body>
 <header class="top">
   <h1>Jukebox de la classe</h1>
-  <p>Cherche un titre, ajoute-le, vote pour faire monter ceux des autres.</p>
+  <p>Cherche un titre et ajoute-le à la file.</p>
   <div class="status" id="status"><i></i><span>Connexion…</span></div>
 </header>
 
@@ -75,11 +75,8 @@
       : '<div class="empty">Rien ne joue pour l\'instant.</div>';
     const upRows = tl.up.map((t, i) => `<li class="row"><span class="n">${i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
         <div class="acts"><span class="tag">Prochain</span></div></li>`);
-    const qRows = q.map((t, i) => {
-      const on = t.votes.has(me);
-      return `<li class="row"><span class="n">${tl.up.length + i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
-        <div class="acts"><button class="vote${on ? ' on' : ''}" data-k="${esc(t.k)}" aria-pressed="${on}" aria-label="Voter">▲ ${t.votes.size}</button></div></li>`;
-    });
+    const qRows = q.map((t, i) => `<li class="row"><span class="n">${tl.up.length + i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
+        <div class="acts"><span class="note">Demandé</span></div></li>`);
     $('queue').innerHTML = upRows.length + qRows.length ? upRows.concat(qRows).join('') : '<li class="empty">La file est vide. Ajoute le premier titre.</li>';
     $('limit').textContent = n >= MAX_PER_PERSON ? `Tu as ${n} titres en attente, maximum atteint. Attends qu'un de tes titres passe.` : (n ? `Tes titres en attente : ${n}/${MAX_PER_PERSON}` : '');
     renderResults();
@@ -132,13 +129,6 @@
     add({ k: 'dz:' + r.id, id: r.id, title: r.title, artist: r.artist && r.artist.name, cover: r.album && r.album.cover_small, dur: r.duration });
   });
 
-  $('queue').addEventListener('click', async e => {
-    const b = e.target.closest('.vote'); if (!b) return;
-    const t = S.tracks.get(b.dataset.k); if (!t) return;
-    const on = t.votes.has(uid());
-    b.disabled = true;
-    try { await send(room, { t: on ? 'unvote' : 'vote', k: t.k }); } catch (err) { toast(err.message); b.disabled = false; }
-  });
 }
 </script>
 </body>
