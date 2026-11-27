@@ -3,54 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0a0f">
 <meta name="robots" content="noindex">
 <title>Jukebox — hôte</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px;max-width:1240px;margin:0 auto;padding:28px max(4vw,16px) 64px;align-items:start}
-.qrcard{position:sticky;top:20px;background:var(--red);color:var(--red-ink);border-radius:20px;padding:22px;text-align:center}
-.qrcard .display{font-size:26px;margin-bottom:14px}
-#qr{background:#fff;border-radius:14px;padding:14px;display:inline-block;line-height:0}
+.grid{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:36px;max-width:1240px;margin:0 auto;padding:28px max(4vw,16px) 72px;align-items:start}
+.qrcard{position:sticky;top:24px;border-radius:30px;padding:2px;background:conic-gradient(from var(--a,0deg),var(--lime),var(--coral),#6b5bff,var(--lime));animation:rot 6s linear infinite}
+@property --a{syntax:'<angle>';initial-value:0deg;inherits:false}
+@keyframes rot{to{--a:360deg}}
+.qrin{border-radius:28px;background:#111118;padding:26px 24px;text-align:center}
+.qrin .display{font-size:24px;margin-bottom:6px}
+.qrin p{margin:0 0 18px;color:var(--soft);font-size:14px}
+#qr{background:#fff;border-radius:20px;padding:14px;display:inline-block;line-height:0;box-shadow:0 20px 50px -20px rgba(200,255,62,.5)}
 #qr img,#qr canvas{width:100%;max-width:260px;height:auto}
-.url{font-size:12px;word-break:break-all;margin:12px 0;opacity:.85}
-.qrcard .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.qrcard button{background:var(--red-ink);color:#fff}
-.qrcard button.ghost{background:transparent;color:var(--red-ink);border-color:rgba(0,0,0,.25)}
+.url{font-size:13px;font-weight:600;word-break:break-all;margin:16px 0;color:var(--lime)}
+.qrin .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#qrnow{display:none;align-items:center;justify-content:center;gap:10px;margin-top:22px;color:var(--lime);font-weight:700}
 .big .grid{display:block}.big .side{display:none}
-.big .qrcard{position:fixed;inset:0;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5}
-.big #qr img,.big #qr canvas{max-width:min(70vh,80vw)}.big .qrcard .display{font-size:clamp(32px,6vw,64px)}
-.opt{display:flex;align-items:center;gap:8px;font-size:14px;margin:6px 0 0}
-.opt input{width:20px;height:20px}
-details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44px;display:flex;align-items:center}
-@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.qrcard{position:static}}
+.big .qrcard{position:fixed;inset:0;border-radius:0;padding:0;background:#0a0a0f;animation:none;z-index:10}
+.big .qrin{height:100%;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:transparent}
+.big #qr img,.big #qr canvas{max-width:min(58vh,80vw)}
+.big .qrin .display{font-size:clamp(30px,5vw,60px)}.big .url{font-size:clamp(16px,2vw,22px)}
+.big #qrnow{display:flex;font-size:clamp(15px,1.8vw,20px)}
+.opt{display:inline-flex;align-items:center;gap:10px;font-size:14px;color:var(--soft);margin-top:14px;cursor:pointer}
+.opt input{appearance:none;width:42px;height:24px;border-radius:99px;background:var(--glass2);border:1px solid var(--line);position:relative;cursor:pointer;transition:background .2s;margin:0;flex:none}
+.opt input::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--ink);transition:transform .3s var(--spring)}
+.opt input:checked{background:var(--lime)}.opt input:checked::after{transform:translateX(18px);background:#0a0a0f}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+details summary{cursor:pointer;font-weight:600;color:var(--soft);margin:34px 0 12px;min-height:44px;display:flex;align-items:center;list-style:none}
+details summary::before{content:"›";display:inline-block;margin-right:10px;transition:transform .25s var(--ease);font-size:20px}
+details[open] summary::before{transform:rotate(90deg)}
+.foot{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.foot p{margin:0;max-width:560px}
+@media(max-width:960px){.grid{grid-template-columns:minmax(0,1fr)}.qrcard{position:static}}
 </style>
 </head>
 <body>
 <div class="grid">
   <aside class="qrcard" aria-label="Rejoindre la file">
-    <div class="display">Scanne pour ajouter un titre</div>
-    <div id="qr"></div>
-    <div class="url" id="url"></div>
-    <div class="acts">
-      <button id="big">Plein écran</button>
-      <button class="ghost" id="copy">Copier le lien</button>
+    <div class="qrin">
+      <div class="display">Scanne&nbsp;&amp; ajoute ta musique</div>
+      <p>Aucune appli, aucun compte.</p>
+      <div id="qr"></div>
+      <div class="url" id="url"></div>
+      <div class="acts">
+        <button class="lime" id="big">Plein écran</button>
+        <button class="ghost" id="copy">Copier le lien</button>
+      </div>
+      <div id="qrnow"></div>
     </div>
   </aside>
 
   <main class="side">
-    <h1>Tableau de bord</h1>
-    <div class="status" id="status"><i></i><span>Connexion…</span></div>
-    <label class="opt"><input type="checkbox" id="app"> Ouvrir les titres dans l'application Deezer (sinon deezer.com)</label>
+    <div class="head">
+      <div class="brand">
+        <div class="logo"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>
+        <div><h1>Jukebox</h1><p>Tableau de bord</p></div>
+      </div>
+      <div class="status" id="status"><i></i><span>Connexion…</span></div>
+    </div>
+    <label class="opt"><input type="checkbox" id="app" role="switch"> Ouvrir dans l'application Deezer (sinon deezer.com)</label>
 
     <h2>En cours</h2>
-    <ul class="list" id="now"></ul>
+    <div id="now"></div>
 
-    <h2>Prochains dans Deezer</h2>
+    <h2>Prochains dans Deezer <span class="badge lime" id="ucount"></span></h2>
     <ul class="list" id="up"></ul>
 
-    <h2>Demandes <span class="note" id="count"></span></h2>
+    <h2>Demandes <span class="badge" id="count"></span></h2>
     <ul class="list" id="queue"></ul>
 
     <details>
@@ -58,8 +81,10 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
       <ul class="list" id="done"></ul>
     </details>
 
-    <p class="note" style="margin-top:32px">« Ajouter dans Deezer » ouvre le titre : s'il ne joue rien, il passe en cours ; sinon il rejoint « Prochains », et tu l'ajoutes à la file d'attente dans Deezer. Le titre en cours avance seul selon la durée des morceaux ; « Suivant » ou « Jouer maintenant » corrigent si tu sautes ou mets en pause. Le QR code est permanent ; l'historique de la file s'efface seul après 12 h.</p>
-    <button class="ghost" id="reset" style="margin-top:8px">Vider la file</button>
+    <div class="foot">
+      <p class="note">« Ajouter dans Deezer » ouvre le titre : s'il ne joue rien, il passe en cours ; sinon il rejoint « Prochains » et tu l'ajoutes à la file dans Deezer. Le titre en cours avance seul selon la durée des morceaux ; « Suivant » ou « Jouer maintenant » recalent si tu sautes ou mets en pause. L'historique s'efface seul après 12 h.</p>
+      <button class="ghost" id="reset">Vider la file</button>
+    </div>
   </main>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -69,15 +94,15 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
 <script>
 {
   const $ = id => document.getElementById(id);
-  const { esc, store, send, subscribe, makeState, apply, queue, byStatus, timeline, fmtDur } = JBX;
+  const { esc, store, send, subscribe, makeState, apply, queue, timeline, fmtDur } = JBX;
   const room = JBX.roomFromUrl();
   const S = makeState();
-  let toastT;
-  const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
+  const toast = JBX.toaster($('toast'));
+  const animU = JBX.animator(), animQ = JBX.animator();
 
   const url = JBX.guestUrl(room);
   $('url').textContent = url.replace(/^https:\/\//, '');
-  if (room === JBX.DEFAULT_ROOM) $('qr').innerHTML = '<img src="qr.svg" alt="QR code vers ' + JBX.esc(url) + '" width="520" height="520">';
+  if (room === JBX.DEFAULT_ROOM) $('qr').innerHTML = '<img src="qr.svg" alt="QR code vers ' + esc(url) + '" width="520" height="520">';
   else try { new QRCode($('qr'), { text: url, width: 520, height: 520, correctLevel: QRCode.CorrectLevel.M }); }
   catch (_) { $('qr').textContent = 'QR code indisponible : partage le lien.'; }
 
@@ -85,16 +110,16 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
   $('app').addEventListener('change', () => { store.set('jbx-app', $('app').checked ? '1' : '0'); render(); });
   $('big').addEventListener('click', () => { const on = document.body.classList.toggle('big'); $('big').textContent = on ? 'Fermer' : 'Plein écran'; });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('big')) $('big').click(); });
-  $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(url); toast('Lien copié'); } catch (_) { toast(url); } });
+  $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(url); toast('Lien copié ✓'); } catch (_) { toast(url); } });
   $('reset').addEventListener('click', async () => {
     if (!confirm('Vider la file d\'attente ? Le QR code reste le même.')) return;
-    try { await send(room, { t: 'clear', k: '*' }); toast('File vidée'); } catch (err) { toast(err.message); }
+    try { await send(room, { t: 'clear', k: '*' }); toast('File vidée'); } catch (err) { toast(err.message, true); }
   });
 
-  const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'Connecté — les demandes arrivent en direct' : 'Reconnexion…'; };
-  subscribe(room, (ev, m) => { apply(S, ev, m); schedule(); }, setStatus);
+  const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'En direct' : 'Reconnexion…'; };
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+  subscribe(room, (ev, m) => { apply(S, ev, m); schedule(); }, setStatus);
 
   const link = t => {
     const app = $('app').checked;
@@ -103,25 +128,26 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
   };
   const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
   const meta = t => `${esc(t.artist)}${t.dur ? ' · ' + fmtDur(t.dur) : ''}${t.by ? ' · ' + esc(t.by) : ''}`;
-  const row = (t, n, acts, cls = '') => `<li class="row ${cls}"><span class="n">${n}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${meta(t)}</div></div><div class="acts">${acts}</div></li>`;
-  const openBtn = t => `<a class="btn blue" href="${esc(link(t))}"${$('app').checked ? '' : ' target="_blank" rel="noopener"'} data-a="add2dz" data-k="${esc(t.k)}">Ajouter dans Deezer</a>`;
-  const delBtn = t => `<button class="ghost" data-a="del" data-k="${esc(t.k)}" aria-label="Retirer">✕</button>`;
-  const left = tl => { const t = tl.cur; if (!t || !t.dur) return ''; const r = Math.max(0, Math.round(t.dur - (Date.now() - tl.start) / 1000)); return 'reste ' + (fmtDur(r) || '0:00'); };
-  const pct = tl => { const t = tl.cur; return t && t.dur ? Math.min(100, (Date.now() - tl.start) / (t.dur * 10)) : 0; };
+  const row = (t, n, acts, cls = '', i = -1) => `<li class="row ${cls}${i >= 0 ? ' new' : ''}"${i >= 0 ? ` style="--i:${i}"` : ''}><span class="n">${n}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${meta(t)}</div></div><div class="acts">${acts}</div></li>`;
+  const openBtn = t => `<a class="btn lime" href="${esc(link(t))}"${$('app').checked ? '' : ' target="_blank" rel="noopener"'} data-a="add2dz" data-k="${esc(t.k)}">Ajouter dans Deezer</a>`;
+  const delBtn = t => `<button class="ghost icon" data-a="del" data-k="${esc(t.k)}" aria-label="Retirer">✕</button>`;
+  const stagger = fresh => { let j = 0; return k => fresh.has(k) ? j++ : -1; };
 
   let sig = '';
   function render() {
     const tl = timeline(S), q = queue(S);
     sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length;
+    document.body.classList.toggle('idle', !tl.cur);
     const playedK = new Set(tl.played.map(t => t.k));
     const done = [...tl.played, ...[...S.tracks.values()].filter(t => (t.status === 'p' || t.status === 'x') && !playedK.has(t.k))];
-    $('now').innerHTML = tl.cur
-      ? `<li class="row now"><span class="n">♪</span>${cover(tl.cur)}<div><div class="t">${esc(tl.cur.title)}</div><div class="a">${meta(tl.cur)} · <span id="left">${left(tl)}</span></div><div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div></div>
-         <div class="acts"><button class="ghost" data-a="skip" data-k="${esc(tl.cur.k)}">Suivant</button></div></li>`
-      : '<li class="empty">Rien en cours. « Ajouter dans Deezer » sur une demande la lance.</li>';
-    $('up').innerHTML = tl.up.length ? tl.up.map((t, i) => row(t, i + 1, `<button class="ghost" data-a="now" data-k="${esc(t.k)}">Jouer maintenant</button>${delBtn(t)}`)).join('') : '<li class="empty">Aucun titre déjà ajouté dans Deezer.</li>';
-    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `${openBtn(t)}${delBtn(t)}`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
-    $('count').textContent = q.length ? '(' + q.length + ')' : '';
+    $('now').innerHTML = JBX.nowCard(tl, tl.cur ? `<span class="acts"><button class="ghost" data-a="skip" data-k="${esc(tl.cur.k)}">Suivant ⏭</button></span>` : '');
+    $('qrnow').innerHTML = tl.cur ? `${JBX.EQ}<span>${esc(tl.cur.title)} · ${esc(tl.cur.artist)}</span>` : '';
+    const su = stagger(animU(tl.up.map(t => t.k)));
+    $('up').innerHTML = tl.up.length ? tl.up.map((t, i) => row(t, i + 1, `<button class="ghost" data-a="now" data-k="${esc(t.k)}">▶ Jouer maintenant</button>${delBtn(t)}`, 'next', su(t.k))).join('') : '<li class="empty">Aucun titre ajouté dans Deezer pour l\'instant.</li>';
+    const sq = stagger(animQ(q.map(t => t.k)));
+    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `${openBtn(t)}${delBtn(t)}`, '', sq(t.k))).join('') : '<li class="empty">Aucune demande. Affiche le QR code à la classe.</li>';
+    $('count').textContent = q.length || ''; $('count').hidden = !q.length;
+    $('ucount').textContent = tl.up.length || ''; $('ucount').hidden = !tl.up.length;
     $('done').innerHTML = done.length ? done.map(t => row(t, t.status === 'x' ? '✕' : '✓', `<button class="ghost" data-a="requeue" data-k="${esc(t.k)}">Remettre</button>`)).join('') : '<li class="empty">Vide.</li>';
     document.title = (q.length ? '(' + q.length + ') ' : '') + 'Jukebox — hôte';
   }
@@ -129,8 +155,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
   setInterval(() => {
     const tl = timeline(S);
     if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length !== sig) return render();
-    const p = $('prog'); if (p) p.style.width = pct(tl) + '%';
-    const l = $('left'); if (l) l.textContent = left(tl);
+    JBX.tick(tl);
   }, 1000);
 
   document.addEventListener('click', async e => {
@@ -141,7 +166,7 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
     if (ev.t === 'add2dz') ev.t = tl.cur ? 'queue' : 'now';
     if (ev.t === 'skip') ev = tl.up[0] ? { t: 'now', k: tl.up[0].k } : { t: 'play', k: t.k };
     if (el.tagName !== 'A') el.disabled = true;
-    try { await send(room, ev); } catch (err) { toast(err.message); el.disabled = false; }
+    try { await send(room, ev); } catch (err) { toast(err.message, true); el.disabled = false; }
   });
 }
 </script>

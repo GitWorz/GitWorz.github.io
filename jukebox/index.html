@@ -3,40 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0a0f">
 <meta name="robots" content="noindex">
 <title>Jukebox de la classe</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <h1>Jukebox de la classe</h1>
-  <p>Cherche un titre et ajoute-le à la file.</p>
+  <div class="brand">
+    <div class="logo"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>
+    <div><h1>Jukebox</h1><p>Ajoute ta musique à la file de la classe.</p></div>
+  </div>
   <div class="status" id="status"><i></i><span>Connexion…</span></div>
 </header>
 
 <main class="wrap">
+  <h2>En cours</h2>
+  <div id="nowbox"></div>
 
-  <section id="app" hidden>
-    <label for="name">Ton prénom (facultatif)</label>
-    <input type="text" id="name" maxlength="24" autocomplete="given-name" placeholder="Ex. Léa">
+  <h2>Ajouter un titre</h2>
+  <form id="sform" autocomplete="off" role="search">
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="q" maxlength="100" placeholder="Titre ou artiste" enterkeyhint="search" aria-label="Rechercher un titre ou un artiste">
+      <button class="lime" type="submit">Chercher</button>
+    </div>
+  </form>
+  <div class="namefield">
+    <label for="name">Ton prénom</label>
+    <input type="text" id="name" maxlength="24" autocomplete="given-name" placeholder="Facultatif">
+  </div>
+  <p class="note" id="limit"></p>
+  <ul class="list" id="results" aria-live="polite"></ul>
 
-    <form id="sform" autocomplete="off">
-      <label for="q">Rechercher un titre ou un artiste</label>
-      <div style="display:flex;gap:8px">
-        <input type="search" id="q" maxlength="100" placeholder="Ex. Daft Punk One More Time" enterkeyhint="search">
-        <button class="blue" type="submit">Chercher</button>
-      </div>
-    </form>
-    <p class="note" id="limit"></p>
-    <ul class="list" id="results" aria-live="polite"></ul>
-
-    <h2>En cours</h2>
-    <div id="nowbox"></div>
-    <h2>File d'attente</h2>
-    <ul class="list" id="queue"></ul>
-  </section>
+  <h2>File d'attente <span class="badge" id="count"></span></h2>
+  <ul class="list" id="queue"></ul>
 </main>
 <div class="toast" id="toast" role="status"></div>
 
@@ -47,75 +50,75 @@
   const { esc, store, uid, send, subscribe, makeState, apply, queue, timeline, ACTIVE, dzSearch, fmtDur, norm, MAX_PER_PERSON } = JBX;
   const room = JBX.roomFromUrl();
   const S = makeState();
-  let results = [], lastQ = '', busy = false, toastT;
+  const toast = JBX.toaster($('toast'));
+  const anim = JBX.animator(), animR = JBX.animator();
+  let results = [], lastQ = '', busy = false, sig = '';
 
-  const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
-  const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'Connecté' : 'Reconnexion…'; };
+  const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'En direct' : 'Reconnexion…'; };
   const mine = () => [...timeline(S).up, ...queue(S)].filter(t => t.u === uid()).length;
   const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
 
-  {
-    $('app').hidden = false;
-    $('name').value = store.get('jbx-name') || '';
-    $('name').addEventListener('change', () => store.set('jbx-name', $('name').value.trim()));
-    subscribe(room, (ev, m) => { apply(S, ev, m); schedule(); }, setStatus);
-  }
-
+  $('name').value = store.get('jbx-name') || '';
+  $('name').addEventListener('change', () => store.set('jbx-name', $('name').value.trim()));
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+  subscribe(room, (ev, m) => { apply(S, ev, m); schedule(); }, setStatus);
 
-  let sig = '';
-  const bar = (tl) => { const t = tl.cur; if (!t || !t.dur) return 0; return Math.min(100, (Date.now() - tl.start) / (t.dur * 10)); };
   function render() {
-    const tl = timeline(S), q = queue(S), me = uid(), n = mine();
+    const tl = timeline(S), q = queue(S), n = mine();
     const by = t => t.by ? ' · ' + esc(t.by) : '';
     sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length;
-    $('nowbox').innerHTML = tl.cur
-      ? `<ul class="list"><li class="row now res">${cover(tl.cur)}<div><div class="t">${esc(tl.cur.title)}</div><div class="a">${esc(tl.cur.artist)}${by(tl.cur)}</div><div class="prog"><i id="prog" style="width:${bar(tl)}%"></i></div></div><span></span></li></ul>`
-      : '<div class="empty">Rien ne joue pour l\'instant.</div>';
-    const upRows = tl.up.map((t, i) => `<li class="row"><span class="n">${i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
-        <div class="acts"><span class="tag">Prochain</span></div></li>`);
-    const qRows = q.map((t, i) => `<li class="row"><span class="n">${tl.up.length + i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
-        <div class="acts"><span class="note">Demandé</span></div></li>`);
-    $('queue').innerHTML = upRows.length + qRows.length ? upRows.concat(qRows).join('') : '<li class="empty">La file est vide. Ajoute le premier titre.</li>';
+    document.body.classList.toggle('idle', !tl.cur);
+    $('nowbox').innerHTML = JBX.nowCard(tl);
+    const all = [...tl.up.map(t => [t, true]), ...q.map(t => [t, false])];
+    const fresh = anim(all.map(([t]) => t.k));
+    let j = 0;
+    $('queue').innerHTML = all.length ? all.map(([t, nx], i) => {
+      const f = fresh.has(t.k);
+      return `<li class="row${nx ? ' next' : ''}${f ? ' new' : ''}"${f ? ` style="--i:${j++}"` : ''}><span class="n">${i + 1}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${esc(t.artist)}${by(t)}</div></div>
+        <div class="acts"><span class="badge${nx ? ' lime' : ''}">${nx ? 'Prochain' : 'Demandé'}</span></div></li>`;
+    }).join('') : '<li class="empty">La file est vide. Lance la soirée avec le premier titre.</li>';
+    $('count').textContent = all.length || '';
+    $('count').hidden = !all.length;
     $('limit').textContent = n >= MAX_PER_PERSON ? `Tu as ${n} titres en attente, maximum atteint. Attends qu'un de tes titres passe.` : (n ? `Tes titres en attente : ${n}/${MAX_PER_PERSON}` : '');
     renderResults();
   }
   setInterval(() => {
     const tl = timeline(S);
     if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length !== sig) return render();
-    const p = $('prog'); if (p) p.style.width = bar(tl) + '%';
+    JBX.tick(tl);
   }, 1000);
 
   function renderResults() {
     const full = mine() >= MAX_PER_PERSON;
+    const fresh = animR(results.map(r => String(r.id)));
     const rows = results.map((r, i) => {
       const k = 'dz:' + r.id, t = S.tracks.get(k), inQ = t && ACTIVE.includes(t.status);
       const img = JBX.safeCover(r.album && r.album.cover_small);
-      return `<li class="row res">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
-        <div><div class="t">${esc(r.title)}${r.explicit_lyrics ? ' <span class="note">(explicite)</span>' : ''}</div><div class="a">${esc(r.artist && r.artist.name)} · ${fmtDur(r.duration)}</div></div>
-        <div class="acts"><button data-i="${i}" ${inQ ? 'class="ghost" disabled>Déjà dans la file' : (full ? 'disabled>Ajouter' : '>Ajouter')}</button></div></li>`;
+      const f = fresh.has(String(r.id));
+      return `<li class="row res${f ? ' new' : ''}" style="--i:${i}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
+        <div><div class="t">${esc(r.title)}${r.explicit_lyrics ? ' <span class="badge">E</span>' : ''}</div><div class="a">${esc(r.artist && r.artist.name)} · ${fmtDur(r.duration)}</div></div>
+        <div class="acts">${inQ ? '<button class="added" disabled>✓ Dans la file</button>' : `<button class="lime icon" data-i="${i}" ${full ? 'disabled' : ''} aria-label="Ajouter ${esc(r.title)}">+</button>`}</div></li>`;
     });
-    if (lastQ) rows.push(`<li class="note" style="padding:4px 2px">Pas le bon titre ? <button class="ghost" id="free" ${full ? 'disabled' : ''} style="min-height:36px;margin-left:6px">Demander « ${esc(lastQ)} »</button></li>`);
+    if (lastQ) rows.push(`<li class="note" style="padding:6px 2px">Pas le bon titre ? <button class="ghost" id="free" ${full ? 'disabled' : ''} style="min-height:38px;margin-left:6px">Demander « ${esc(lastQ)} »</button></li>`);
     $('results').innerHTML = rows.join('');
   }
 
   $('sform').addEventListener('submit', async e => {
     e.preventDefault();
     const q = $('q').value.trim(); if (!q || busy) return;
+    $('q').blur();
     busy = true; lastQ = q; $('results').innerHTML = '<li class="note">Recherche…</li>';
-    try { results = await dzSearch(q); if (!results.length) toast('Aucun résultat sur Deezer.'); }
-    catch (_) { results = []; toast('Recherche indisponible : envoie ta demande en texte.'); }
+    try { results = await dzSearch(q); if (!results.length) toast('Aucun résultat sur Deezer.', true); }
+    catch (_) { results = []; toast('Recherche indisponible : envoie ta demande en texte.', true); }
     busy = false; renderResults();
   });
 
-  if (room) render();
-
   async function add(ev) {
-    if (mine() >= MAX_PER_PERSON) return toast('Maximum de titres en attente atteint.');
+    if (mine() >= MAX_PER_PERSON) return toast('Maximum de titres en attente atteint.', true);
     ev.t = 'add'; ev.by = $('name').value.trim().slice(0, 24); store.set('jbx-name', ev.by);
     try { await send(room, ev); toast('Ajouté à la file ✓'); results = []; lastQ = ''; $('q').value = ''; renderResults(); }
-    catch (err) { toast(err.message); }
+    catch (err) { toast(err.message, true); renderResults(); }
   }
 
   $('results').addEventListener('click', e => {
@@ -125,10 +128,11 @@
       return add({ k, title: lastQ.slice(0, 100), artist: 'Demande libre' });
     }
     const r = results[+b.dataset.i]; if (!r) return;
-    b.disabled = true;
+    b.disabled = true; b.textContent = '…';
     add({ k: 'dz:' + r.id, id: r.id, title: r.title, artist: r.artist && r.artist.name, cover: r.album && r.album.cover_small, dur: r.duration });
   });
 
+  render();
 }
 </script>
 </body>

@@ -107,5 +107,44 @@ const JBX = (() => {
     });
   }
 
-  return { esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM, ACTIVE, timeline };
+  /* --- Rendu partagé --- */
+  const bigCover = u => u ? u.replace(/\/\d+x\d+-/, '/500x500-').replace(/['"()\\\s]/g, '') : '';
+  const pct = tl => { const t = tl.cur; return t && t.dur ? Math.min(100, (Date.now() - tl.start) / (t.dur * 10)) : 0; };
+  const times = tl => {
+    const t = tl.cur; if (!t || !t.dur) return ['En direct', ''];
+    const el = Math.min(t.dur, Math.max(0, Math.round((Date.now() - tl.start) / 1000)));
+    return [fmtDur(el) || '0:00', '-' + (fmtDur(t.dur - el) || '0:00')];
+  };
+  const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+  let lastNow = '';
+  function nowCard(tl, extra = '') {
+    const t = tl.cur;
+    if (!t) { lastNow = ''; return `<div class="np-empty"><span class="disc"></span><div>Rien ne joue pour l'instant.<br><span class="note">Le prochain titre apparaîtra ici.</span></div></div>`; }
+    const c = bigCover(t.cover), fresh = t.k !== lastNow; lastNow = t.k;
+    const [a, b] = times(tl);
+    return `<div class="np${fresh ? ' new' : ''}">
+      <div class="bg"${c ? ` style="background-image:url('${esc(c)}')"` : ''}></div>
+      <div class="deck"><span class="vinyl"${c ? ` style="--lab:url('${esc(c)}')"` : ''}></span>${c ? `<img class="sleeve" src="${esc(c)}" alt="">` : '<span class="sleeve"></span>'}</div>
+      <div><div class="label">${EQ}En cours</div><div class="title">${esc(t.title)}</div>
+        <div class="artist">${esc(t.artist)}${t.by ? ' · demandé par ' + esc(t.by) : ''}</div>
+        <div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div>
+        <div class="meta"><span id="elapsed">${a}</span>${extra}<span id="left">${b}</span></div></div></div>`;
+  }
+  function tick(tl) {
+    const p = document.getElementById('prog'); if (p) p.style.width = pct(tl) + '%';
+    const [a, b] = times(tl);
+    const e = document.getElementById('elapsed'); if (e) e.textContent = a;
+    const l = document.getElementById('left'); if (l) l.textContent = b;
+  }
+  /* N'anime que les lignes qui viennent d'apparaître. */
+  function animator() {
+    let seen = new Set();
+    return keys => { const fresh = new Set(keys.filter(k => !seen.has(k))); seen = new Set(keys); return fresh; };
+  }
+  function toaster(el) {
+    let tm;
+    return (msg, err) => { el.textContent = msg; el.classList.toggle('err', !!err); el.classList.add('show'); clearTimeout(tm); tm = setTimeout(() => el.classList.remove('show'), 2600); };
+  }
+
+  return { bigCover, pct, nowCard, tick, animator, toaster, EQ, esc, clip, rnd, store, uid, roomFromUrl, newRoom, guestUrl, safeCover, fmtDur, norm, send, subscribe, makeState, apply, byStatus, queue, dzSearch, MAX_PER_PERSON, ROOM_RE, DEFAULT_ROOM, ACTIVE, timeline };
 })();
