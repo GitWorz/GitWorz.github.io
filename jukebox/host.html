@@ -74,7 +74,8 @@ details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44p
 
   const url = JBX.guestUrl(room);
   $('url').textContent = url.replace(/^https:\/\//, '');
-  try { new QRCode($('qr'), { text: url, width: 520, height: 520, correctLevel: QRCode.CorrectLevel.M }); }
+  if (room === JBX.DEFAULT_ROOM) $('qr').innerHTML = '<img src="qr.svg" alt="QR code vers ' + JBX.esc(url) + '" width="520" height="520">';
+  else try { new QRCode($('qr'), { text: url, width: 520, height: 520, correctLevel: QRCode.CorrectLevel.M }); }
   catch (_) { $('qr').textContent = 'QR code indisponible : partage le lien.'; }
 
   $('app').checked = store.get('jbx-app') === '1';
