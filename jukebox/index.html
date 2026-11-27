@@ -8,7 +8,7 @@
 <title>Jukebox de la classe</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1795776435">
+<link rel="stylesheet" href="style.css?v=1795777659">
 </head>
 <body>
 <header class="top">
@@ -43,7 +43,7 @@
 </main>
 <div class="toast" id="toast" role="status"></div>
 
-<script src="common.js?v=1795776435"></script>
+<script src="common.js?v=1795777659"></script>
 <script>
 {
   const $ = id => document.getElementById(id);
@@ -67,7 +67,7 @@
   function render() {
     const tl = timeline(S), q = queue(S), n = mine();
     const by = t => t.by ? ' · ' + esc(t.by) : '';
-    sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length;
+    sig = (tl.cur ? tl.cur.k : '') + '|' + tl.up.length + '|' + tl.paused + '|' + (tl.cur ? tl.cur.nts : '');
     document.body.classList.toggle('idle', !tl.cur);
     $('nowbox').innerHTML = JBX.nowCard(tl);
     const all = [...tl.up.map(t => [t, true]), ...q.map(t => [t, false])];
@@ -85,7 +85,7 @@
   }
   setInterval(() => {
     const tl = timeline(S);
-    if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length !== sig) return render();
+    if ((tl.cur ? tl.cur.k : '') + '|' + tl.up.length + '|' + tl.paused + '|' + (tl.cur ? tl.cur.nts : '') !== sig) return render();
     JBX.tick(tl);
   }, 1000);
 

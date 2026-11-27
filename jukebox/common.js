@@ -71,7 +71,10 @@ const JBX = (() => {
         if (!t) break;
         for (const o of timeline(S, ts).played) o.status = 'p';
         for (const o of S.tracks.values()) if (o.status === 'n') o.status = 'p';
-        t.status = 'n'; t.nts = ts; break;
+        t.status = 'n'; t.nts = ts; t.paused = 0; break;
+      case 'pause': { const tl = materialize(S, ts); if (tl.cur === t && !t.paused) t.paused = ts; break; }
+      case 'resume': { const tl = materialize(S, ts); if (tl.cur === t && t.paused) { t.nts += ts - t.paused; t.paused = 0; } break; }
+      case 'restart': { const tl = materialize(S, ts); if (tl.cur === t) { t.nts = ts; if (t.paused) t.paused = ts; } break; }
       case 'play': if (t) t.status = 'p'; break;
       case 'del': if (t) t.status = 'x'; break;
       case 'requeue': if (t) { t.status = 'q'; t.ts = ts; } break;
@@ -83,14 +86,24 @@ const JBX = (() => {
   /* Chronologie déduite : le titre en cours avance seul selon les durées.
      cur = vraiment en cours, up = déjà dans la file Deezer (dans l'ordre), played = terminés. */
   const GRACE = 3000;
+  /* Fige la chronologie déduite à l'instant ts : le titre réellement en cours devient le statut « n ». */
+  function materialize(S, ts) {
+    const tl = timeline(S, ts);
+    for (const o of tl.played) o.status = 'p';
+    if (tl.cur && tl.cur.status !== 'n') {
+      for (const o of S.tracks.values()) if (o.status === 'n') o.status = 'p';
+      tl.cur.status = 'n'; tl.cur.nts = tl.start; tl.cur.paused = 0;
+    }
+    return tl;
+  }
   function timeline(S, now = Date.now()) {
     const up = byStatus(S, 'd').sort((a, b) => a.dts - b.dts);
     const played = [];
     let cur = byStatus(S, 'n')[0] || null, start = cur ? cur.nts : 0;
-    const over = () => cur && cur.dur > 0 && now - start > cur.dur * 1000 + GRACE;
+    const over = () => cur && cur.dur > 0 && !cur.paused && now - start > cur.dur * 1000 + GRACE;
     while (over() && up.length) { played.push(cur); const nx = up.shift(); start = Math.max(start + cur.dur * 1000, nx.dts); cur = nx; }
     if (over()) { played.push(cur); cur = null; }
-    return { cur, start, up, played };
+    return { cur, start, up, played, at: cur && cur.paused ? cur.paused : now, paused: !!(cur && cur.paused) };
   }
 
   /* Recherche Deezer en JSONP (l'API publique n'envoie pas d'en-têtes CORS). */
@@ -110,10 +123,10 @@ const JBX = (() => {
 
   /* --- Rendu partagé --- */
   const bigCover = u => u ? u.replace(/\/\d+x\d+-/, '/500x500-').replace(/['"()\\\s]/g, '') : '';
-  const pct = tl => { const t = tl.cur; return t && t.dur ? Math.min(100, (Date.now() - tl.start) / (t.dur * 10)) : 0; };
+  const pct = tl => { const t = tl.cur; return t && t.dur ? Math.max(0, Math.min(100, (tl.at - tl.start) / (t.dur * 10))) : 0; };
   const times = tl => {
     const t = tl.cur; if (!t || !t.dur) return ['En direct', ''];
-    const el = Math.min(t.dur, Math.max(0, Math.round((Date.now() - tl.start) / 1000)));
+    const el = Math.min(t.dur, Math.max(0, Math.round((tl.at - tl.start) / 1000)));
     return [fmtDur(el) || '0:00', '-' + (fmtDur(t.dur - el) || '0:00')];
   };
   const EQ = '<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
@@ -123,13 +136,13 @@ const JBX = (() => {
     if (!t) { lastNow = ''; return `<div class="np-empty"><span class="disc"></span><div>Rien ne joue pour l'instant.<br><span class="note">Le prochain titre apparaîtra ici.</span></div></div>`; }
     const c = bigCover(t.cover), fresh = t.k !== lastNow; lastNow = t.k;
     const [a, b] = times(tl);
-    return `<div class="np${fresh ? ' new' : ''}">
+    return `<div class="np${fresh ? ' new' : ''}${tl.paused ? ' paused' : ''}">
       <div class="bg"${c ? ` style="background-image:url('${esc(c)}')"` : ''}></div>
       <div class="deck"><span class="vinyl"${c ? ` style="--lab:url('${esc(c)}')"` : ''}></span>${c ? `<img class="sleeve" src="${esc(c)}" alt="">` : '<span class="sleeve"></span>'}</div>
-      <div><div class="label">${EQ}En cours</div><div class="title">${esc(t.title)}</div>
+      <div><div class="label">${EQ}${tl.paused ? 'En pause' : 'En cours'}</div><div class="title">${esc(t.title)}</div>
         <div class="artist">${esc(t.artist)}${t.by ? ' · demandé par ' + esc(t.by) : ''}</div>
         <div class="prog"><i id="prog" style="width:${pct(tl)}%"></i></div>
-        <div class="meta"><span id="elapsed">${a}</span>${extra}<span id="left">${b}</span></div></div></div>`;
+        <div class="meta"><span id="elapsed">${a}</span><span id="left">${b}</span></div>${extra}</div></div>`;
   }
   function tick(tl) {
     const p = document.getElementById('prog'); if (p) p.style.width = pct(tl) + '%';
