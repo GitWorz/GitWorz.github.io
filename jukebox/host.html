@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Jukebox — hôte</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:32px;max-width:1240px;margin:0 auto;padding:28px max(4vw,16px) 64px;align-items:start}
+.qrcard{position:sticky;top:20px;background:var(--red);color:var(--red-ink);border-radius:20px;padding:22px;text-align:center}
+.qrcard .display{font-size:26px;margin-bottom:14px}
+#qr{background:#fff;border-radius:14px;padding:14px;display:inline-block;line-height:0}
+#qr img,#qr canvas{width:100%;max-width:260px;height:auto}
+.url{font-size:12px;word-break:break-all;margin:12px 0;opacity:.85}
+.qrcard .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.qrcard button{background:var(--red-ink);color:#fff}
+.qrcard button.ghost{background:transparent;color:var(--red-ink);border-color:rgba(0,0,0,.25)}
+.big .grid{display:block}.big .side{display:none}
+.big .qrcard{position:fixed;inset:0;border-radius:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5}
+.big #qr img,.big #qr canvas{max-width:min(70vh,80vw)}.big .qrcard .display{font-size:clamp(32px,6vw,64px)}
+.opt{display:flex;align-items:center;gap:8px;font-size:14px;margin:6px 0 0}
+.opt input{width:20px;height:20px}
+details summary{cursor:pointer;font-weight:700;margin:28px 0 10px;min-height:44px;display:flex;align-items:center}
+@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.qrcard{position:static}}
+</style>
+</head>
+<body>
+<div class="grid">
+  <aside class="qrcard" aria-label="Rejoindre la file">
+    <div class="display">Scanne pour ajouter un titre</div>
+    <div id="qr"></div>
+    <div class="url" id="url"></div>
+    <div class="acts">
+      <button id="big">Plein écran</button>
+      <button class="ghost" id="copy">Copier le lien</button>
+    </div>
+  </aside>
+
+  <main class="side">
+    <h1>Tableau de bord</h1>
+    <div class="status" id="status"><i></i><span>Connexion…</span></div>
+    <label class="opt"><input type="checkbox" id="app"> Ouvrir les titres dans l'application Deezer (sinon deezer.com)</label>
+
+    <h2>En cours</h2>
+    <ul class="list" id="now"></ul>
+
+    <h2>File d'attente <span class="note" id="count"></span></h2>
+    <ul class="list" id="queue"></ul>
+
+    <details>
+      <summary>Déjà joués ou retirés</summary>
+      <ul class="list" id="done"></ul>
+    </details>
+
+    <p class="note" style="margin-top:32px">« Ouvrir » lance le titre dans Deezer et le marque en cours. Dans Deezer, utilise « Ajouter à la file d'attente » si un titre joue déjà. La file est conservée 12 h par ntfy.sh.</p>
+    <button class="ghost" id="reset" style="margin-top:8px">Nouvelle session (nouveau QR code)</button>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="common.js"></script>
+<script>
+{
+  const $ = id => document.getElementById(id);
+  const { esc, store, send, subscribe, makeState, apply, queue, byStatus, fmtDur } = JBX;
+  let room = JBX.roomFromUrl() || (JBX.ROOM_RE.test(store.get('jbx-room') || '') ? store.get('jbx-room') : JBX.newRoom());
+  store.set('jbx-room', room);
+  history.replaceState(null, '', '?r=' + room);
+  const S = makeState();
+  let toastT;
+  const toast = msg => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
+
+  const url = JBX.guestUrl(room);
+  $('url').textContent = url.replace(/^https:\/\//, '');
+  try { new QRCode($('qr'), { text: url, width: 520, height: 520, correctLevel: QRCode.CorrectLevel.M }); }
+  catch (_) { $('qr').textContent = 'QR code indisponible : partage le lien.'; }
+
+  $('app').checked = store.get('jbx-app') === '1';
+  $('app').addEventListener('change', () => { store.set('jbx-app', $('app').checked ? '1' : '0'); render(); });
+  $('big').addEventListener('click', () => { const on = document.body.classList.toggle('big'); $('big').textContent = on ? 'Fermer' : 'Plein écran'; });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('big')) $('big').click(); });
+  $('copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(url); toast('Lien copié'); } catch (_) { toast(url); } });
+  $('reset').addEventListener('click', () => {
+    if (!confirm('Ouvrir une nouvelle session ? L\'ancien QR code ne fonctionnera plus.')) return;
+    store.set('jbx-room', JBX.newRoom()); location.href = location.pathname;
+  });
+
+  const setStatus = on => { $('status').classList.toggle('on', on); $('status').lastElementChild.textContent = on ? 'Connecté — les demandes arrivent en direct' : 'Reconnexion…'; };
+  subscribe(room, (ev, m) => { apply(S, ev, m); schedule(); }, setStatus);
+  let raf = 0;
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); };
+
+  const link = t => {
+    const app = $('app').checked;
+    const path = t.id ? 'track/' + t.id : 'search/' + encodeURIComponent(t.title);
+    return (app ? 'deezer://www.deezer.com/' : 'https://www.deezer.com/fr/') + path;
+  };
+  const cover = t => t.cover ? `<img src="${esc(t.cover)}" alt="" loading="lazy">` : '<span class="ph"></span>';
+  const meta = t => `${esc(t.artist)}${t.dur ? ' · ' + fmtDur(t.dur) : ''}${t.by ? ' · ' + esc(t.by) : ''}`;
+  const row = (t, n, acts, cls = '') => `<li class="row ${cls}"><span class="n">${n}</span>${cover(t)}<div><div class="t">${esc(t.title)}</div><div class="a">${meta(t)}</div></div><div class="acts">${acts}</div></li>`;
+  const openBtn = t => `<a class="btn blue" href="${esc(link(t))}"${$('app').checked ? '' : ' target="_blank" rel="noopener"'} data-a="now" data-k="${esc(t.k)}">${t.id ? 'Ouvrir' : 'Chercher'}</a>`;
+
+  function render() {
+    const q = queue(S), now = byStatus(S, 'n');
+    const done = [...byStatus(S, 'p'), ...byStatus(S, 'x')].sort((a, b) => b.ts - a.ts);
+    $('now').innerHTML = now.length ? now.map(t => row(t, '♪', `${openBtn(t)}<button class="ghost" data-a="play" data-k="${esc(t.k)}">Terminé</button>`, 'now')).join('') : '<li class="empty">Rien en cours.</li>';
+    $('queue').innerHTML = q.length ? q.map((t, i) => row(t, i + 1, `<span class="note">▲ ${t.votes.size}</span>${openBtn(t)}<button class="ghost" data-a="del" data-k="${esc(t.k)}" aria-label="Retirer">✕</button>`)).join('') : '<li class="empty">Aucune demande pour l\'instant. Affiche le QR code à la classe.</li>';
+    $('count').textContent = q.length ? '(' + q.length + ')' : '';
+    $('done').innerHTML = done.length ? done.map(t => row(t, t.status === 'x' ? '✕' : '✓', `<button class="ghost" data-a="requeue" data-k="${esc(t.k)}">Remettre</button>`)).join('') : '<li class="empty">Vide.</li>';
+    document.title = (q.length ? '(' + q.length + ') ' : '') + 'Jukebox — hôte';
+  }
+  render();
+
+  document.addEventListener('click', async e => {
+    const el = e.target.closest('[data-a]'); if (!el) return;
+    const t = S.tracks.get(el.dataset.k); if (!t) return;
+    if (el.tagName !== 'A') el.disabled = true;
+    try { await send(room, { t: el.dataset.a, k: t.k }); } catch (err) { toast(err.message); el.disabled = false; }
+  });
+}
+</script>
+</body>
+</html>
